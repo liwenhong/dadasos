@@ -1,7 +1,8 @@
 {
   "pages": [
     "pages/index/main",
-    "pages/chooseAddress/main"
+    "pages/chooseAddress/main",
+    "pages/orderDetail/main"
   ],
   "window": {
     "backgroundTextStyle": "light",

@@ -1,5 +1,6 @@
 <template>
   <div class="page-content">
+    <mptoast />
     <div :class="{'pickerMask':isShowMask}"></div>
     <div class="weui-navbar">
       <block v-for="(item,index) in tabs" :key="index">
@@ -47,18 +48,17 @@
         <div class="car-time">
           <img class="img-from" src="http://bmob-cdn-20712.b0.upaiyun.com/2018/08/25/3cbe168e40d28ffd80202cf2aacb19a9.png" alt="">
           <img class="img2" src="http://bmob-cdn-20712.b0.upaiyun.com/2018/08/25/22d4e4ba4074b08980f7bb78e9eae6bb.png" alt="">
-          <input type="text" v-model="addressFrom.title" placeholder="请输入起点"  @click="addressChange(1)">
-          <!-- <button></button> -->
+          <input type="text" disabled v-model="addressFrom.title" placeholder="请输入起点"  @click="addressChange(1)">
         </div>
         <div class="car-time">
           <img class="img-from" src="http://bmob-cdn-20712.b0.upaiyun.com/2018/08/25/9869ee6340320453801bb9761856a235.png" alt="">
           <img class="img2" src="http://bmob-cdn-20712.b0.upaiyun.com/2018/08/25/22d4e4ba4074b08980f7bb78e9eae6bb.png" alt="">
-          <input type="text" v-model="addressTo.title" placeholder="请输入终点" @click="addressChange(2)">
+          <input type="text" disabled v-model="addressTo.title" placeholder="请输入终点" @click="addressChange(2)">
         </div>
       </div>
       <div class="fee">
         <div class="price">约 <span style="font-size:28px;"> {{money}} </span>元</div>
-        <div class="price-detail">实际费用可能因实际行驶里程\等候时间等因素而异</div>
+        <div class="price-detail">实际费用可能因实际行驶里程\过路费等因素而异</div>
       </div>
     </div>
 
@@ -88,15 +88,20 @@
     </div>
 
     <div class="btn">
-      <button type="primary" @click="toCall()" :disabled="money<=0"> 立即救援 </button>
+      <!-- <button type="primary" @click="toCall()" :disabled="money<=0"> 立即救援 </button> -->
+      <button class="act-btn" type="primary" open-type="getUserInfo" :disabled="money<=0" lang="zh_CN" @getuserinfo="onGotUserInfo($event)" >立即救援</button>
     </div>
+
+    <card v-on:addOrder="toAddOrder()" v-if="toOrder"></card>
   </div>
 </template>
 
 <script>
-import { map_calculateDistance } from '@/utils/map.js'
-// import { Bmob_Add, sendMsg } from '@/utils/bmob_init.js'
+import { map_calculateDistance, map_reverseGeocoder } from '@/utils/map.js'
+import { Bmob_Add, Bmob_CreateLocation, getUserInfo, Bmob_CreatePoint, Bmob_QueryLocation, sendMsg} from '@/utils/bmob_init.js'
 import store from './store'
+import card from '@/components/card.vue'
+import mptoast from 'mptoast'
 export default {
   data () {
     return {
@@ -115,13 +120,19 @@ export default {
       addressTo: {},
       money: 0,
       moneyObj: { 0: 7, 1: 5 },
+      toOrder:false
     }
   },
-
+  components:{
+    card,
+    mptoast
+  },
   mounted () {
+    this.getLocation()
     let p = this.$root.$mp.query,address = {}
     if(p.type){
       address = JSON.parse(p.address)
+      console.log(address)
       this.curDate = !!store.getters.getCurDate ? store.getters.getCurDate : '现在'
       if(p.type === '1'){
         store.commit('setAddressFrom',address)
@@ -160,38 +171,73 @@ export default {
   },
 
   methods:{
-    toCall(){
-      let username = wx.getStorageSync('username')
+    onGotUserInfo(e){
+      wx.showLoading()
+      let data = e.mp.detail.userInfo
+      // data.status = '0'
+      console.log(data)
+      this.$Bmob.User.upInfo(data).then(result => {
+        console.log(result)
+        wx.hideLoading()
+      })
+      this.toOrder = true
+    },
+    toAddOrder(val){
+      this.toOrder = false
       let from = this.addressFrom
       let to = this.addressTo
-      //  创建订单
-      let form = {
-        username: username,
-        fromAddress: from.title,
-        fromAddressDetail: from.address,
-        toAddress: to.title,
-        toAddressDetail: to.address,
-        fromLat: from.location.lat,
-        fromLng: from.location.lng,
+      let point = Bmob_CreateLocation(from.location.lat,from.location.lng)
+      console.log(point)
+      let objectId = this.$Bmob.User.current().objectId
+      let u = Bmob_CreatePoint('_User',objectId)
+      let params = {
+        addressFrom: from.title,
+        addressFromDetail: from.title,
+        addressTo: to.title,
+        addressToDetail: to.address,
+        locationFrom: point,
+        status: '0',
         toLat: to.location.lat,
         toLng: to.location.lng,
-        time: this.curDate,
-        status: '0',
-        money: this.money
+        amount: parseInt(this.money),
+        user: u,
       }
-      console.log(this.form)
-      Bmob_Add('banJiaOrder',form).then(res => {
+      console.log(params)
+      Bmob_Add('Order',params).then(da => {
+        console.log('订单添加成功')
+        console.log(da)
+        //  跳转到订单详细页
+        //  短信通知附近的救援师傅
+        // this.toNotice(from.location.lat,from.location.lng,da.objectId)
+
         wx.redirectTo({
-          url: '../yysuccess/main'
+          url: '../orderDetail/main?objectId='+ da.objectId+'&lat='+from.location.lat+'&lng='+from.location.lng
         })
-        //  短信通知
-        sendMsg(this.config.banjiaMobile).then(r => {
-
-        })
-      }).catch(err => {
-
+      }).catch(error => {
+        console.log('添加失败')
       })
 
+    },
+    getLocation(){
+      wx.getLocation({
+        type: 'wgs84',
+        success: (data) => {
+          //2、根据坐标获取当前位置名称，显示在顶部:腾讯地图逆地址解析
+          map_reverseGeocoder(data.latitude,data.longitude).then(res => {
+            let temp_address = res.result.address_component
+            let cur_address = temp_address.city + temp_address.district + temp_address.street_number
+            this.addressFrom = res.result.address_component
+            this.addressFrom.location = res.result.location
+            // console.log(this.addressFrom)
+            store.commit('setAddressFrom',this.addressFrom)
+            this.$set(this.addressFrom,'title',cur_address)
+            // this.toNotice(res.result.location.lat,res.result.location.lng)
+          }).catch(err => {
+            console.log(err)
+            console.log('获取定位失败')
+          })
+        }
+      })
     },
     calDistance(){
       let from = {
@@ -261,6 +307,33 @@ export default {
       this.isShowMask = false;
       this.pickerShow = false;
     },
+    /**
+     * 查询附近的救援师傅并短信通知
+     */
+    toNotice(latitude,langitude,objectId){
+      let self = this
+      Bmob_QueryLocation('userInfo',latitude,langitude,10,'location','0').then(res => {
+        if(res.length > 0){
+          //  附近有师傅
+          for(let i =0;i<res.length;i++){
+            //  发送短信
+            (function(j){
+              sendMsg(res[i].username,'救援').then(da => {
+                console.log(da)
+                self.$mptoast('已通知附近救援师傅，请耐心等候')
+                wx.redirectTo({
+                  url: '../orderDetail/main?objectId='+ objectId
+                })
+              })
+            })(i);
+          }
+        }else{
+          self.$mptoast('附近暂无救援师傅，请联系客服')
+        }
+      }).catch(err => {
+        console.log(err)
+      })
+    }
   }
 }
 </script>

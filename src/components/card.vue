@@ -82,30 +82,29 @@ export default {
         return
       }
       let objectId = this.$Bmob.User.current().objectId
-      console.log(objectId)
-      Bmob_Update('_User',objectId,{'phone':this.mobile}).then(res => {
+      // console.log(objectId)
+      // Bmob_Update('_User',objectId,{'phone':this.mobile}).then(res => {
 
-      })
-      this.$emit('addOrder',true)
-      //  短信验证
-      // verifySmsCode(this.mobile,this.code).then(res => {
-      //   //  验证成功
-      //   !!this.timer && clearInterval(this.timer)
-      //   //  更新用户表
-      //   getUserInfo().then((res) => {
-      //     // objectId = res.objectId
-      //     Bmob_Update('_User',res.objectId,{username:this.mobile,phone:this.mobile}).then(da => {
-
-      //     })
-      //   })
-      //   this.$emit('addOrder',true)
-      // }).catch(err => {
-      //   wx.showToast({
-      //     title: JSON.stringify(err),
-      //     duration: 3000
-      //   });
       // })
+      // this.$emit('addOrder',true)
+      //  短信验证
+      verifySmsCode(this.mobile,this.code).then(data => {
+        //  验证成功
+        !!this.timer && clearInterval(this.timer)
+        //  更新用户表
+        getUserInfo().then((res) => {
+          // objectId = res.objectId
+          Bmob_Update('_User',res.objectId,{phone:this.mobile}).then(da => {
 
+          })
+        })
+        this.$emit('addOrder',true)
+      }).catch(err => {
+        wx.showToast({
+          title: JSON.stringify(err),
+          duration: 3000
+        });
+      })
     },
     /**
      * 验证是否是手机号码

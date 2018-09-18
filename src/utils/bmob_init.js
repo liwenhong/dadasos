@@ -28,11 +28,24 @@ export function Bomb_Search(table,params){
   return new Promise((resolve,reject) => {
     const query = Bmob.Query(table);
     for(let key in params){
-      if(key == 'static' && table=='Order'){
-        query.equalTo(key,"<",params[key])
-      }else{
-        query.equalTo(key,"==", params[key])
-      }
+      query.equalTo(key,"==", params[key])
+    }
+    query.find().then(t => {
+      debug && console.log(t)
+      resolve(t)
+    }).catch(error => {
+      reject(error)
+    })
+  })
+}
+export function Bomb_Order(params){
+  return new Promise((resolve,reject) => {
+    const query = Bmob.Query('Order');
+    const query1 = query.equalTo('status',"==", '0')
+    const query2 = query.equalTo('status',"==", '1')
+    query.or(query1, query2);
+    for(let key in params){
+      query.equalTo(key,"==", params[key])
     }
     query.find().then(t => {
       debug && console.log(t)
@@ -244,8 +257,6 @@ export function Bmob_QueryLocation(table,latitude,langitude,km = 10,key,status){
     const point = Bmob.GeoPoint({ latitude: latitude,longitude: langitude })
     const query = Bmob.Query(table);
     query.withinKilometers(key, point, km);  //10指的是公里
-    // query.include('carUser','userInfo')
-    // query.include('user','_User')
     query.equalTo('status','==',status)
     query.find().then(res => {
       debug && console.log(res)

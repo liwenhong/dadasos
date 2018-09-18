@@ -23,7 +23,7 @@
           </view>
           <view class="weui-form-preview__item">
               <view class="weui-form-preview__label">救援师傅</view>
-              <view class="weui-form-preview__value" v-if="!!item.carUser">颜师傅</view>
+              <view class="weui-form-preview__value" v-if="!!item.carUser">item.username</view>
               <view class="weui-form-preview__value" v-else>暂无师傅接单</view>
           </view>
           <view class="weui-form-preview__item">
@@ -39,7 +39,7 @@
       </view>
       <view class="weui-form-preview__ft">
           <a @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">联系客服</a>
-          <a @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
+          <a @click="!!item.carUser?toCall():''" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
       </view>
     </view>
     <div class="tip">
@@ -112,7 +112,7 @@ export default {
         if(res.length > 0){
           this.order = res
           if(!!res[0].carUser){
-            map_calculateDistance(res[0].locationFrom,res[0].carUser.location).then(da => {
+            map_calculateDistance(res[0].locationFrom,[res[0].carUser.location]).then(da => {
               res[0].distance = da.distance
               res[0].duration = da.duration
               this.order = res

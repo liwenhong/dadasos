@@ -93,14 +93,16 @@
     </div>
 
     <card v-on:addOrder="toAddOrder()" v-if="toOrder"></card>
+    <dialog1 v-if="isOrder" :title="'提示'" :subtitle="'您有订单尚在进行中，点击确定查看订单状态'" v-on:confirm="confirm"></dialog1>
   </div>
 </template>
 
 <script>
 import { map_calculateDistance, map_reverseGeocoder } from '@/utils/map.js'
-import { Bmob_Add, Bmob_CreateLocation, getUserInfo, Bmob_CreatePoint, Bmob_QueryLocation, sendMsg} from '@/utils/bmob_init.js'
+import { Bmob_Add, Bmob_CreateLocation, getUserInfo, Bmob_CreatePoint, Bmob_QueryLocation, sendMsg,Bomb_Order} from '@/utils/bmob_init.js'
 import store from './store'
 import card from '@/components/card.vue'
+import dialog1 from '@/components/dialog.vue'
 import mptoast from 'mptoast'
 export default {
   data () {
@@ -120,14 +122,18 @@ export default {
       addressTo: {},
       money: 0,
       moneyObj: { 0: 7, 1: 5 },
-      toOrder:false
+      toOrder:false,
+      isOrder: false,
+      orderId:''
     }
   },
   components:{
     card,
-    mptoast
+    mptoast,
+    dialog1
   },
   mounted () {
+    this.getOrder(0)
     this.getLocation()
     let p = this.$root.$mp.query,address = {}
     if(p.type){
@@ -157,7 +163,6 @@ export default {
     }else{
       this.calTime()
     }
-
   },
   computed: {
     navbarSliderClass() {
@@ -174,15 +179,14 @@ export default {
     onGotUserInfo(e){
       wx.showLoading()
       let data = e.mp.detail.userInfo
-      // data.status = '0'
       console.log(data)
       this.$Bmob.User.upInfo(data).then(result => {
         console.log(result)
         wx.hideLoading()
       })
-      this.toOrder = true
+      this.getOrder(1)
     },
-    toAddOrder(val){
+   toAddOrder(val){
       this.toOrder = false
       let from = this.addressFrom
       let to = this.addressTo
@@ -208,11 +212,11 @@ export default {
         console.log(da)
         //  跳转到订单详细页
         //  短信通知附近的救援师傅
-        // this.toNotice(from.location.lat,from.location.lng,da.objectId)
+        this.toNotice(from.location.lat,from.location.lng,da.objectId)
 
-        wx.redirectTo({
-          url: '../orderDetail/main?objectId='+ da.objectId+'&lat='+from.location.lat+'&lng='+from.location.lng
-        })
+        // wx.navigateTo({
+        //   url: '../orderDetail/main?objectId='+ da.objectId+'&lat='+from.location.lat+'&lng='+from.location.lng
+        // })
       }).catch(error => {
         console.log('添加失败')
       })
@@ -321,18 +325,44 @@ export default {
               sendMsg(res[i].username,'救援').then(da => {
                 console.log(da)
                 self.$mptoast('已通知附近救援师傅，请耐心等候')
-                wx.redirectTo({
-                  url: '../orderDetail/main?objectId='+ objectId
+                wx.navigateTo({
+                  url: '../orderDetail/main?objectId='+ objectId+'&lat='+latitude+'&lng='+langitude
                 })
               })
             })(i);
           }
-        }else{
-          self.$mptoast('附近暂无救援师傅，请联系客服')
         }
       }).catch(err => {
         console.log(err)
       })
+    },
+    /**
+     * 查询用户是否有未完成的订单
+     */
+    getOrder(type){
+        let objectId = this.$Bmob.User.current().objectId;
+        let pointer = Bmob_CreatePoint('_User',objectId)
+        console.log(pointer)
+        Bomb_Order({'user':pointer}).then(res => {
+          if(res.length>0){
+            this.isOrder = true
+            this.toOrder = false
+            this.orderId = res[0].objectId
+          }else{
+            type === 1 && (this.toOrder = true)
+          }
+        })
+    },
+    confirm(val){
+      console.log(val)
+      if(val){
+        //  跳转订单详情页
+       wx.navigateTo({
+        url: '../orderDetail/main?objectId='+ this.orderId+'&lat='+this.addressFrom.location.lat+'&lng='+this.addressFrom.location.lng
+      })
+      }else{
+        this.isOrder = false
+      }
     }
   }
 }
@@ -371,11 +401,11 @@ export default {
     }
     .weui-navbar__slider_0 {
       left: 29rpx;
-      transform: translateX(10px);
+      transform: translateX(50rpx);
     }
     .weui-navbar__slider_1 {
       left: 29rpx;
-      transform: translateX(400rpx);
+      transform: translateX(425rpx);
     }
     .weui-navbar__slider{
       width: 7.4em;

@@ -23,7 +23,7 @@
           </view>
           <view class="weui-form-preview__item">
               <view class="weui-form-preview__label">救援师傅</view>
-              <view class="weui-form-preview__value" v-if="!!item.carUser">item.username</view>
+              <view class="weui-form-preview__value" v-if="!!item.carUser">{{item.carUser.username}}</view>
               <view class="weui-form-preview__value" v-else>暂无师傅接单</view>
           </view>
           <view class="weui-form-preview__item">
@@ -112,10 +112,12 @@ export default {
         if(res.length > 0){
           this.order = res
           if(!!res[0].carUser){
+            this.order = []
             map_calculateDistance(res[0].locationFrom,[res[0].carUser.location]).then(da => {
               res[0].distance = da.distance
               res[0].duration = da.duration
               this.order = res
+              console.log(this.order)
               wx.hideLoading();
             })
           }

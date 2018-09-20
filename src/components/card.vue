@@ -1,5 +1,6 @@
 <template>
   <div>
+    <mptoast />
     <!--阴影遮罩-->
     <div class="backdrop"></div>
 
@@ -26,13 +27,17 @@
               <view class="weui-vcode-btn" @click="msg != '获取验证码'?'':getCode()">{{msg}}</view>
           </view>
       </view>
-      <button style="width:80%;margin-bottom:20px;" class="weui-btn" type="primary" :disabled="!(mobile.length===11 && code >2)" @click="toAddOrder()">立即救援</button>
+      <form report-submit="true" @submit="toAddOrder" >
+        <!-- <button type="default" formType="submit" >发送</button> -->
+        <button style="width:80%;margin-bottom:20px;" class="weui-btn" type="primary" formType="submit" :disabled="!(mobile.length===11 && code >2)">立即救援</button>
+      </form>
     </view>
   </div>
 </template>
 
 <script>
 import { sendMsg, verifySmsCode, getUserInfo, Bmob_Update } from '@/utils/bmob_init.js'
+import mptoast from 'mptoast'
 export default {
   // props: ["mobile","code"]
   data:function(){
@@ -43,14 +48,18 @@ export default {
       timer: null
     }
   },
+  components:{
+    mptoast
+  },
   methods:{
     getCode(){
       if(!this.isMobile(this.mobile)){
-        wx.showToast({
-            title: '手机号码格式不正确',
-            icon:'',
-            duration: 3000
-        });
+        this.$mptoast("手机号码格式不正确")
+        // wx.showToast({
+        //     title: '手机号码格式不正确',
+        //     icon:'',
+        //     duration: 3000
+        // });
         return
       }
       sendMsg(this.mobile,'注册').then(res => {
@@ -66,24 +75,27 @@ export default {
           }
         }, 1000);
       }).catch(err => {
-        wx.showToast({
-          title:'验证码发送失败，请稍后再试',
-          duration: 2000
-        })
+        this.$mptoast("验证码发送失败，请稍后再试")
+        // wx.showToast({
+        //   title:'验证码发送失败，请稍后再试',
+        //   duration: 2000
+        // })
       })
     },
-    toAddOrder(){
+    toAddOrder(e){
       //  此处做好判断
       if(this.code == undefined || this.code == ''){
-        wx.showToast({
-            title: '请输入验证码',
-            duration: 3000
-        });
+        // wx.showToast({
+        //     title: '请输入验证码',
+        //     duration: 3000
+        // });
+        this.$mptoast("请输入验证码")
         return
       }
+      console.log('form发生了submit事件，携带数据为：', e.mp.detail.formId)
       let objectId = this.$Bmob.User.current().objectId
       // console.log(objectId)
-      // Bmob_Update('_User',objectId,{'phone':this.mobile}).then(res => {
+      // Bmob_Update('_User',objectId,{'phone':this.mobile,formId:e.mp.detail.formId}).then(res => {
 
       // })
       // this.$emit('addOrder',true)
@@ -94,16 +106,17 @@ export default {
         //  更新用户表
         getUserInfo().then((res) => {
           // objectId = res.objectId
-          Bmob_Update('_User',res.objectId,{phone:this.mobile}).then(da => {
+          Bmob_Update('_User',res.objectId,{phone:this.mobile,formId:e.mp.detail.formId }).then(da => {
 
           })
         })
         this.$emit('addOrder',true)
       }).catch(err => {
-        wx.showToast({
-          title: JSON.stringify(err),
-          duration: 3000
-        });
+        if(err.code === 207){
+          this.$mptoast("验证码错误")
+        }else{
+          this.$mptoast("验证码验证失败")
+        }
       })
     },
     /**

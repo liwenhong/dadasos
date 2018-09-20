@@ -133,8 +133,9 @@ export default {
     dialog1
   },
   mounted () {
-    this.getOrder(0)
-    this.getLocation()
+    this.getLocation().then(tt => {
+      this.getOrder(0)
+    })
     let p = this.$root.$mp.query,address = {}
     if(p.type){
       address = JSON.parse(p.address)
@@ -223,25 +224,30 @@ export default {
 
     },
     getLocation(){
-      wx.getLocation({
-        type: 'wgs84',
-        success: (data) => {
-          //2、根据坐标获取当前位置名称，显示在顶部:腾讯地图逆地址解析
-          map_reverseGeocoder(data.latitude,data.longitude).then(res => {
-            let temp_address = res.result.address_component
-            let cur_address = temp_address.city + temp_address.district + temp_address.street_number
-            this.addressFrom = res.result.address_component
-            this.addressFrom.location = res.result.location
-            // console.log(this.addressFrom)
-            store.commit('setAddressFrom',this.addressFrom)
-            this.$set(this.addressFrom,'title',cur_address)
-            // this.toNotice(res.result.location.lat,res.result.location.lng)
-          }).catch(err => {
-            console.log(err)
-            console.log('获取定位失败')
-          })
-        }
+      return new Promise((resolve,reject) => {
+        wx.getLocation({
+          type: 'wgs84',
+          success: (data) => {
+            //2、根据坐标获取当前位置名称，显示在顶部:腾讯地图逆地址解析
+            map_reverseGeocoder(data.latitude,data.longitude).then(res => {
+              let temp_address = res.result.address_component
+              let cur_address = temp_address.city + temp_address.district + temp_address.street_number
+              this.addressFrom = res.result.address_component
+              this.addressFrom.location = res.result.location
+              // console.log(this.addressFrom)
+              store.commit('setAddressFrom',this.addressFrom)
+              this.$set(this.addressFrom,'title',cur_address)
+              // this.toNotice(res.result.location.lat,res.result.location.lng)
+              resolve('success')
+            }).catch(err => {
+              console.log(err)
+              console.log('获取定位失败')
+              reject(err)
+            })
+          }
+        })
       })
+
     },
     calDistance(){
       let from = {
@@ -354,7 +360,7 @@ export default {
         })
     },
     confirm(val){
-      console.log(val)
+      console.log(this.addressFrom)
       if(val){
         //  跳转订单详情页
        wx.navigateTo({

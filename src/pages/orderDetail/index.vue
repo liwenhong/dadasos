@@ -23,23 +23,23 @@
           </view>
           <view class="weui-form-preview__item">
               <view class="weui-form-preview__label">救援师傅</view>
-              <view class="weui-form-preview__value" v-if="!!item.carUser">{{item.carUser.username}}</view>
+              <view class="weui-form-preview__value" v-if="!!item.carUser && !!item.carUser.location">{{item.carUser.username}}</view>
               <view class="weui-form-preview__value" v-else>暂无师傅接单</view>
           </view>
           <view class="weui-form-preview__item">
               <view class="weui-form-preview__label">离您距离</view>
-              <view class="weui-form-preview__value" v-if="!!item.carUser">{{item.distance}}公里</view>
+              <view class="weui-form-preview__value" v-if="!!item.carUser && !!item.carUser.location">{{item.distance}}公里</view>
               <view class="weui-form-preview__value" v-else>暂无</view>
           </view>
           <view class="weui-form-preview__item">
               <view class="weui-form-preview__label">预计到达时间</view>
-              <view class="weui-form-preview__value" v-if="!!item.carUser">{{item.duration}}分钟</view>
+              <view class="weui-form-preview__value" v-if="!!item.carUser && !!item.carUser.location">{{item.duration}}分钟</view>
               <view class="weui-form-preview__value" v-else>暂无</view>
           </view>
       </view>
       <view class="weui-form-preview__ft">
           <a @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">联系客服</a>
-          <a @click="!!item.carUser?toCall():''" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
+          <a @click="(!!item.carUser && !!item.carUser.location)?toCall():''" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
       </view>
     </view>
     <div class="tip">
@@ -50,7 +50,7 @@
 
 <script>
 import { map_getSuggestion, map_calculateDistance } from '@/utils/map.js'
-import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation } from '@/utils/bmob_init.js'
+import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation, Bmob_Socket } from '@/utils/bmob_init.js'
 import mptoast from 'mptoast'
 export default {
   data () {
@@ -89,6 +89,7 @@ export default {
     mptoast
   },
   mounted () {
+    // Bmob_Socket('Order')
     this.getLocation()
     let obj = this.$root.$mp.query
     if(obj.objectId){
@@ -109,9 +110,11 @@ export default {
       console.log(orderId)
       wx.showLoading();
       Bmob_IncludeQuery('Order',{ objectId: orderId },{ 'carUser': 'userInfo' }).then(res => {
+        console.log('..............')
+        console.log(res)
         if(res.length > 0){
           this.order = res
-          if(!!res[0].carUser){
+          if(!!res[0].carUser && res[0].carUser.location){
             this.order = []
             map_calculateDistance(res[0].locationFrom,[res[0].carUser.location]).then(da => {
               res[0].distance = da.distance
@@ -119,6 +122,8 @@ export default {
               this.order = res
               console.log(this.order)
               wx.hideLoading();
+            }).catch(error => {
+              console.log(error)
             })
           }
           wx.hideLoading();

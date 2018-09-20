@@ -267,3 +267,18 @@ export function Bmob_QueryLocation(table,latitude,langitude,km = 10,key,status){
     })
   })
 }
+export function Bmob_Socket(table){
+  let BmobSocketIo =new Bmob.Socket()
+  //初始连接socket.io服务器后，需要监听的事件都写在这个函数内
+  BmobSocketIo.onInitListen = function () {
+    //订阅Chat表的数据更新事件
+    BmobSocketIo.updateTable(table); //聊天记录表
+  };
+
+  //监听服务器返回的更新表的数据
+  BmobSocketIo.onUpdateTable = (tablename, data) => {
+    if (tablename == "Order") {
+      console.log(data);
+    }
+  };
+}

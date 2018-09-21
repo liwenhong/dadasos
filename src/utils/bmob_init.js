@@ -43,7 +43,8 @@ export function Bomb_Order(params){
     const query = Bmob.Query('Order');
     const query1 = query.equalTo('status',"==", '0')
     const query2 = query.equalTo('status',"==", '1')
-    query.or(query1, query2);
+    const query3 = query.equalTo('status',"==", '2')
+    query.or(query1, query2,query3);
     for(let key in params){
       query.equalTo(key,"==", params[key])
     }

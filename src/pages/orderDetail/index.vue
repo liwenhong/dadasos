@@ -5,7 +5,7 @@
 
     <view class="weui-form-preview" v-for="(item,index) in order" :key="index">
       <view class="weui-form-preview__hd">
-          <view class="weui-form-preview__label">{{item.status ==='0'?'等待救援':'救援中'}}</view>
+          <view class="weui-form-preview__label">{{status[item.status]}}</view>
           <view class="weui-form-preview__value_in-hd">¥{{item.amount}}</view>
       </view>
       <view class="weui-form-preview__bd">
@@ -38,8 +38,9 @@
           </view>
       </view>
       <view class="weui-form-preview__ft">
-          <a @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">联系客服</a>
-          <a @click="(!!item.carUser && !!item.carUser.location)?toCall():''" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
+          <a @click="cancelOrder()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">取消订单</a>
+          <a v-if="!!item.carUser && !!item.carUser.location" @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
+          <a v-else @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系客服</a>
       </view>
     </view>
     <div class="tip">
@@ -50,7 +51,7 @@
 
 <script>
 import { map_getSuggestion, map_calculateDistance } from '@/utils/map.js'
-import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation, Bmob_Socket } from '@/utils/bmob_init.js'
+import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation, Bmob_Update, sendMsg } from '@/utils/bmob_init.js'
 import mptoast from 'mptoast'
 export default {
   data () {
@@ -60,47 +61,73 @@ export default {
       latitude:0,
       longitude:0,
       markers: [],
-      polyline: [{
-      points: [{
-        longitude: 113.3245211,
-        latitude: 23.10229
-      }, {
-        longitude: 113.324520,
-        latitude: 23.21229
-      }],
-      color:"#FF0000DD",
-      width: 2,
-      dottedLine: true
-    }],
-    controls: [{
-      id: 1,
-      iconPath: '/resources/location.png',
-      position: {
-        left: 0,
-        top: 300 - 50,
-        width: 50,
-        height: 50
-      },
-      clickable: true
-    }]
+      status:{'-1':'已取消','0':'等待救援','1':'师傅已接单','2':'救援中','3':'救援完成'}
     }
   },
   components: {
     mptoast
   },
   mounted () {
-    // Bmob_Socket('Order')
     this.getLocation()
     let obj = this.$root.$mp.query
     if(obj.objectId){
       this.latitude = obj.lat
       this.longitude = obj.lng
-      this.getOrderInfo(obj.objectId)
+      this.orderId = obj.objectId
+      this.getOrderInfo(obj.objectId).then(res => {
+        console.log(res)
+      })
     }else{
       this.$mptoast('未找到订单')
     }
   },
   methods: {
+    //  取消订单
+    cancelOrder(){
+      this.getOrderInfo(this.orderId).then(res => {
+        //  判断订单状态
+        if(res.length > 0){
+          let status = res[0].status
+          let mobile = (!!res[0].carUser && !!res[0].carUser.username) ? res[0].carUser.username:''
+          let objId =  (!!res[0].carUser && !!res[0].carUser.objectId) ? res[0].carUser.objectId:''
+          console.log('.............')
+          console.log(status,'....',mobile,'....',objId)
+          this.changeOrderStatus(status,mobile,objId).then(data => {
+
+          })
+        }
+      })
+    },
+    changeOrderStatus(type,mobile,cObjectId){
+      return new Promise((resolve,reject) => {
+        wx.showLoading()
+        Bmob_Update('Order',this.orderId,{ 'status': '-1'}).then(data => {
+          this.$mptoast("订单取消成功")
+          wx.redirectTo({
+            url: '../index/main'
+          })
+          if((type === '1' || type === '2') && mobile !=''){
+            // 通知救援师傅，订单取消了 订单取消
+            sendMsg(mobile,'订单取消').then(tt => {
+              //  更改师傅状态
+              Bmob_Update('userInfo',cObjectId,{'status':'0'}).then(n => {
+
+              })
+            }).catch(err => {
+              //  短信告知师傅失败
+            })
+          }else if(type === '3'){
+            this.$mptoast("该订单已经不可取消")
+          }
+          wx.hideLoading();
+        }).catch(err => {
+          wx.hideLoading();
+          this.$mptoast("订单取消失败，稍后再试")
+          reject(err)
+        })
+      })
+
+    },
     toCall(){
       wx.makePhoneCall({
         phoneNumber: '18575501087'
@@ -108,30 +135,34 @@ export default {
     },
     getOrderInfo(orderId){
       console.log(orderId)
-      wx.showLoading();
-      Bmob_IncludeQuery('Order',{ objectId: orderId },{ 'carUser': 'userInfo' }).then(res => {
-        console.log('..............')
-        console.log(res)
-        if(res.length > 0){
-          this.order = res
-          if(!!res[0].carUser && res[0].carUser.location){
-            this.order = []
-            map_calculateDistance(res[0].locationFrom,[res[0].carUser.location]).then(da => {
-              res[0].distance = da.distance
-              res[0].duration = da.duration
-              this.order = res
-              console.log(this.order)
-              wx.hideLoading();
-            }).catch(error => {
-              console.log(error)
-            })
+      return new Promise((resolve,reject) => {
+        wx.showLoading();
+        Bmob_IncludeQuery('Order',{ objectId: orderId },{ 'carUser': 'userInfo' }).then(res => {
+          if(res.length > 0){
+            this.order = res
+            if(!!res[0].carUser && res[0].carUser.location){
+              this.order = []
+              map_calculateDistance(res[0].locationFrom,[res[0].carUser.location]).then(da => {
+                res[0].distance = da.distance
+                res[0].duration = da.duration
+                this.order = res
+                wx.hideLoading();
+                resolve(this.order)
+              }).catch(error => {
+                wx.hideLoading();
+                console.log(error)
+              })
+            }else{
+              resolve(this.order)
+            }
+            wx.hideLoading();
+
           }
+        }).catch(err => {
+          console.log(JSON.stringify(err))
+          reject(err)
           wx.hideLoading();
-          console.log(this.order)
-        }
-      }).catch(err => {
-        console.log(JSON.stringify(err))
-        wx.hideLoading();
+        })
       })
     },
     getLocation(){

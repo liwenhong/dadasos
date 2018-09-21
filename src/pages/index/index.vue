@@ -88,7 +88,6 @@
     </div>
 
     <div class="btn">
-      <!-- <button type="primary" @click="toCall()" :disabled="money<=0"> 立即救援 </button> -->
       <button class="act-btn" type="primary" open-type="getUserInfo" :disabled="money<=0" lang="zh_CN" @getuserinfo="onGotUserInfo($event)" >立即救援</button>
     </div>
 
@@ -132,10 +131,12 @@ export default {
     mptoast,
     dialog1
   },
-  mounted () {
+  onShow(){
     this.getLocation().then(tt => {
       this.getOrder(0)
     })
+  },
+  mounted () {
     let p = this.$root.$mp.query,address = {}
     if(p.type){
       address = JSON.parse(p.address)
@@ -214,7 +215,9 @@ export default {
         //  跳转到订单详细页
         //  短信通知附近的救援师傅
         this.toNotice(from.location.lat,from.location.lng,da.objectId)
-
+        wx.navigateTo({
+          url: '../orderDetail/main?objectId='+ da.objectId+'&lat='+from.location.lat+'&lng='+from.location.lng
+        })
         // wx.navigateTo({
         //   url: '../orderDetail/main?objectId='+ da.objectId+'&lat='+from.location.lat+'&lng='+from.location.lng
         // })
@@ -331,9 +334,6 @@ export default {
               sendMsg(res[i].username,'救援').then(da => {
                 console.log(da)
                 self.$mptoast('已通知附近救援师傅，请耐心等候')
-                wx.navigateTo({
-                  url: '../orderDetail/main?objectId='+ objectId+'&lat='+latitude+'&lng='+langitude
-                })
               })
             })(i);
           }
@@ -356,6 +356,7 @@ export default {
             this.orderId = res[0].objectId
           }else{
             type === 1 && (this.toOrder = true)
+            this.isOrder = false
           }
         })
     },

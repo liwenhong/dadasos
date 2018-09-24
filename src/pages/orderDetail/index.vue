@@ -38,7 +38,8 @@
           </view>
       </view>
       <view class="weui-form-preview__ft">
-          <a @click="cancelOrder()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">取消订单</a>
+          <a v-if="item.status === '3'" @click="toPay()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">立即支付</a>
+          <a v-else @click="cancelOrder()" class="weui-form-preview__btn weui-form-preview__btn_default" hover-class="weui-form-preview__btn_active">取消订单</a>
           <a v-if="!!item.carUser && !!item.carUser.location" @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系师傅</a>
           <a v-else @click="toCall()" class="weui-form-preview__btn weui-form-preview__btn_primary" hover-class="weui-form-preview__btn_active">联系客服</a>
       </view>
@@ -51,7 +52,7 @@
 
 <script>
 import { map_getSuggestion, map_calculateDistance } from '@/utils/map.js'
-import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation, Bmob_Update, sendMsg } from '@/utils/bmob_init.js'
+import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation, Bmob_Update, sendMsg, Bmob_CreatePoint, Bmob_Add } from '@/utils/bmob_init.js'
 import mptoast from 'mptoast'
 export default {
   data () {
@@ -61,7 +62,7 @@ export default {
       latitude:0,
       longitude:0,
       markers: [],
-      status:{'-1':'已取消','0':'等待救援','1':'师傅已接单','2':'救援中','3':'救援完成'}
+      status:{'-1':'已取消','0':'等待救援','1':'师傅已接单','2':'救援中','3':'等待支付','4':'救援完成'}
     }
   },
   components: {
@@ -82,6 +83,32 @@ export default {
     }
   },
   methods: {
+    toPay(){
+      wx.showLoading()
+      //  支付，支付完成后更改车主状态，添加车主流水记录-----未对接支付，此处模拟支付
+      Bmob_Update('Order',this.orderId,{ 'status': '4'}).then(data => {
+        let uPoint =  Bmob_CreatePoint('_User',this.order[0].carUser.user.objectId)
+        let ls ={
+            type: 1,
+            amount: parseInt((this.order[0].amount * 0.9).toFixed(2)),
+            user: uPoint,
+            status: '0'
+          }
+          console.log(ls)
+          //  添加流水
+          Bmob_Add('bankAccount',ls).then(t => {
+            console.log('流水添加成功')
+          })
+          //  更改救援师傅状态
+          Bmob_Update('userInfo',this.order[0].carUser.objectId,{status:'0'}).then(r => {
+            console.log()
+          })
+          wx.hideLoading()
+          wx.redirectTo({
+            url: '../index/main'
+          })
+      })
+    },
     //  取消订单
     cancelOrder(){
       this.getOrderInfo(this.orderId).then(res => {
@@ -103,9 +130,7 @@ export default {
         wx.showLoading()
         Bmob_Update('Order',this.orderId,{ 'status': '-1'}).then(data => {
           this.$mptoast("订单取消成功")
-          wx.redirectTo({
-            url: '../index/main'
-          })
+
           if((type === '1' || type === '2') && mobile !=''){
             // 通知救援师傅，订单取消了 订单取消
             sendMsg(mobile,'订单取消').then(tt => {
@@ -118,7 +143,11 @@ export default {
             })
           }else if(type === '3'){
             this.$mptoast("该订单已经不可取消")
+            return
           }
+           wx.redirectTo({
+            url: '../index/main'
+           })
           wx.hideLoading();
         }).catch(err => {
           wx.hideLoading();

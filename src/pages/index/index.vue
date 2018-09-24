@@ -28,7 +28,7 @@
         <img src="http://bmob-cdn-20712.b0.upaiyun.com/2018/08/26/a10f8e79403974148078dfbc768c130f.jpeg" alt="">
         <div class="row row-no-padding car-price">
           <div class="col">200元(10公里)</div>
-          <div class="col">5.0元/公里</div>
+          <div class="col">8.0元/公里</div>
           <!-- <div class="col">1吨</div> -->
         </div>
         <div class="row row-no-padding car-detail">
@@ -120,7 +120,7 @@ export default {
       addressFrom: {},
       addressTo: {},
       money: 0,
-      moneyObj: { 0: 7, 1: 5 },
+      moneyObj: { 0: 7, 1: 8 },
       toOrder:false,
       isOrder: false,
       orderId:''
@@ -132,9 +132,9 @@ export default {
     dialog1
   },
   onShow(){
-    this.getLocation().then(tt => {
+    // this.getLocation().then(tt => {
       this.getOrder(0)
-    })
+    // })
   },
   mounted () {
     let p = this.$root.$mp.query,address = {}
@@ -142,9 +142,10 @@ export default {
       address = JSON.parse(p.address)
       console.log(address)
       this.curDate = !!store.getters.getCurDate ? store.getters.getCurDate : '现在'
-      if(p.type === '1'){
+      if(p.type == '1'){
         store.commit('setAddressFrom',address)
         this.addressFrom = address
+        // this.$set(this.addressFrom,'title',address.title)
         //  从store 里获取addressTo的信息
         this.addressTo = store.getters.getAddressTo
         console.log(this.addressTo)
@@ -164,6 +165,7 @@ export default {
       }
     }else{
       this.calTime()
+      this.getLocation().then(() => {})
     }
   },
   computed: {

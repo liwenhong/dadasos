@@ -1,9 +1,22 @@
 
 const QQMapWX = require('./qqmap-wx-jssdk.min.js');
+const coordtransform=require('coordtransform');
 const qqmapsdk = new QQMapWX({
   key: 'ENNBZ-ZKKLV-ACYPX-UVJM3-AK7UO-S7FQG'
 });
 const debug = true
+/**
+ * 国测局坐标转百度经纬度坐标
+ * @param {维度} lat
+ * @param {精度} lng
+ */
+export function transferLocation(lat,lng){
+  return new Promise((resolve,reject) => {
+    let gcj02tobd09=coordtransform.gcj02tobd09(lng, lat);
+    resolve(gcj02tobd09)
+  })
+
+}
 //  地点搜索
 export function map_search(keyword){
   return new Promise((resolve,reject) => {

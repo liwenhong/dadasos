@@ -97,7 +97,7 @@
 </template>
 
 <script>
-import { map_calculateDistance, map_reverseGeocoder } from '@/utils/map.js'
+import { map_calculateDistance, map_reverseGeocoder, transferLocation } from '@/utils/map.js'
 import { Bmob_Add, Bmob_CreateLocation, getUserInfo, Bmob_CreatePoint, Bmob_QueryLocation, sendMsg,Bomb_Order} from '@/utils/bmob_init.js'
 import store from './store'
 import card from '@/components/card.vue'
@@ -139,30 +139,35 @@ export default {
   mounted () {
     let p = this.$root.$mp.query,address = {}
     if(p.type){
+      this.curDate = !!store.getters.getCurDate ? store.getters.getCurDate : '现在'
       address = JSON.parse(p.address)
       console.log(address)
-      this.curDate = !!store.getters.getCurDate ? store.getters.getCurDate : '现在'
-      if(p.type == '1'){
-        store.commit('setAddressFrom',address)
-        this.addressFrom = address
-        // this.$set(this.addressFrom,'title',address.title)
-        //  从store 里获取addressTo的信息
-        this.addressTo = store.getters.getAddressTo
-        console.log(this.addressTo)
-        if(this.addressTo.title){
-          //  调用计算距离点接口
-          this.calDistance()
+      transferLocation(address.location.lat,address.location.lng).then(d => {
+        address.location.lat = d[1]
+        address.location.lng = d[0]
+        if(p.type == '1'){
+          store.commit('setAddressFrom',address)
+          this.addressFrom = address
+          // this.$set(this.addressFrom,'title',address.title)
+          //  从store 里获取addressTo的信息
+          this.addressTo = store.getters.getAddressTo
+          console.log(this.addressTo)
+          if(this.addressTo.title){
+            //  调用计算距离点接口
+            this.calDistance()
+          }
+        }else{
+          this.addressTo = address
+          store.commit('setAddressTo',address)
+          this.addressFrom = store.getters.getAddressFrom
+          console.log(this.addressFrom)
+          if(this.addressFrom.title){
+            //  调用计算距离点接口
+            this.calDistance()
+          }
         }
-      }else{
-        this.addressTo = address
-        store.commit('setAddressTo',address)
-        this.addressFrom = store.getters.getAddressFrom
-        console.log(this.addressFrom)
-        if(this.addressFrom.title){
-          //  调用计算距离点接口
-          this.calDistance()
-        }
-      }
+      })
+
     }else{
       this.calTime()
       this.getLocation().then(() => {})
@@ -231,24 +236,30 @@ export default {
     getLocation(){
       return new Promise((resolve,reject) => {
         wx.getLocation({
-          type: 'wgs84',
+          type: 'gcj02',
           success: (data) => {
             //2、根据坐标获取当前位置名称，显示在顶部:腾讯地图逆地址解析
-            map_reverseGeocoder(data.latitude,data.longitude).then(res => {
-              let temp_address = res.result.address_component
-              let cur_address = temp_address.city + temp_address.district + temp_address.street_number
-              this.addressFrom = res.result.address_component
-              this.addressFrom.location = res.result.location
-              // console.log(this.addressFrom)
-              store.commit('setAddressFrom',this.addressFrom)
-              this.$set(this.addressFrom,'title',cur_address)
-              // this.toNotice(res.result.location.lat,res.result.location.lng)
-              resolve('success')
-            }).catch(err => {
-              console.log(err)
-              console.log('获取定位失败')
-              reject(err)
+            transferLocation(data.latitude,data.longitude).then(d => {
+              console.log(d)
+               map_reverseGeocoder(d[1],d[0]).then(res => {
+                let temp_address = res.result.address_component
+                let cur_address = temp_address.city + temp_address.district + temp_address.street_number
+                this.addressFrom = res.result.address_component
+                res.result.location.lat = d[1]
+                res.result.location.lng = d[0]
+                this.addressFrom.location = res.result.location
+                console.log(this.addressFrom.location)
+                store.commit('setAddressFrom',this.addressFrom)
+                this.$set(this.addressFrom,'title',cur_address)
+                // this.toNotice(res.result.location.lat,res.result.location.lng)
+                resolve('success')
+              }).catch(err => {
+                console.log(err)
+                console.log('获取定位失败')
+                reject(err)
+              })
             })
+
           }
         })
       })

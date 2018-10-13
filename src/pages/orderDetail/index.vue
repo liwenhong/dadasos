@@ -23,7 +23,7 @@
           </view>
           <view class="weui-form-preview__item">
               <view class="weui-form-preview__label">救援师傅</view>
-              <view class="weui-form-preview__value" v-if="!!item.carUser && !!item.carUser.location">{{item.carUser.username}}</view>
+              <view class="weui-form-preview__value" v-if="!!item.carUser && !!item.carUser.nickName">{{item.carUser.nickName}}</view>
               <view class="weui-form-preview__value" v-else>暂无师傅接单</view>
           </view>
           <view class="weui-form-preview__item">
@@ -51,7 +51,7 @@
 </template>
 
 <script>
-import { map_getSuggestion, map_calculateDistance } from '@/utils/map.js'
+import { map_getSuggestion, map_calculateDistance, transferLocation } from '@/utils/map.js'
 import { Bomb_Search, Bmob_IncludeQuery, Bmob_QueryLocation, Bmob_Update, sendMsg, Bmob_CreatePoint, Bmob_Add } from '@/utils/bmob_init.js'
 import mptoast from 'mptoast'
 export default {
@@ -92,7 +92,13 @@ export default {
             type: 1,
             amount: parseInt((this.order[0].amount * 0.9).toFixed(2)),
             user: uPoint,
-            status: '0'
+            status: '0',
+            mobile:this.order[0].carUser.username,
+            username:this.order[0].carUser.nickName,
+            carNumber: this.order[0].carUser.carNumber,
+          }
+          if(!!this.order[0].carUser.company && this.order[0].carUser.company.objectId !=""){
+            ls.company = this.order[0].carUser.company
           }
           console.log(ls)
           //  添加流水
@@ -167,6 +173,7 @@ export default {
       return new Promise((resolve,reject) => {
         wx.showLoading();
         Bmob_IncludeQuery('Order',{ objectId: orderId },{ 'carUser': 'userInfo' }).then(res => {
+          console.log(res)
           if(res.length > 0){
             this.order = res
             if(!!res[0].carUser && res[0].carUser.location){
@@ -200,38 +207,41 @@ export default {
       wx.getLocation({
         type: 'wgs84',
         success: (data) => {
-          let p = {
-            id: 0,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            width: 30,
-            height: 30,
-            iconPath: "/static/mapicon.png"
-          }
-          this.markers.push(p)
-          //  根据位置获取附近10公里的救援师傅
-          Bmob_QueryLocation('userInfo',data.latitude,data.longitude,10,'location','0').then(res => {
-            if(res.length > 0){
-              //  附近有师傅
-              for(let i = 0;i< res.length;i++){
-                let temp = {
-                  id: i+1,
-                  latitude: res[i].location.latitude,
-                  longitude: res[i].location.longitude,
-                  width: 30,
-                  height: 30,
-                  iconPath: "/static/mapicon.png"
-                }
-                this.markers.push(temp)
-              }
-              console.log(this.markers)
-            }else{
-
-              // self.$mptoast('附近暂无救援师傅，请联系客服')
+          transferLocation(data.latitude,data.longitude).then(d => {
+            let p = {
+              id: 0,
+              latitude: d[1],
+              longitude: d[0],
+              width: 30,
+              height: 30,
+              iconPath: "/static/mapicon.png"
             }
-          }).catch(err => {
-            console.log(err)
+            this.markers.push(p)
+            //  根据位置获取附近10公里的救援师傅
+            Bmob_QueryLocation('userInfo',data.latitude,data.longitude,10,'location','0').then(res => {
+              if(res.length > 0){
+                //  附近有师傅
+                for(let i = 0;i< res.length;i++){
+                  let temp = {
+                    id: i+1,
+                    latitude: res[i].location.latitude,
+                    longitude: res[i].location.longitude,
+                    width: 30,
+                    height: 30,
+                    iconPath: "/static/mapicon.png"
+                  }
+                  this.markers.push(temp)
+                }
+                console.log(this.markers)
+              }else{
+
+                // self.$mptoast('附近暂无救援师傅，请联系客服')
+              }
+            }).catch(err => {
+              console.log(err)
+            })
           })
+
         },
 
       })
